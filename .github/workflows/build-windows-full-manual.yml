@@ -54,6 +54,16 @@ jobs:
             https://github.com/Inochi2D/i2d-imgui.git i2d-imgui
           git clone --depth 1 `
             https://github.com/Inochi2D/dcv-i2d.git dcv-i2d
+
+          # v0.8.1 has an extra ".." argument in its x64 static-CRT CMake
+          # command. Repair only that typo while keeping the pinned source.
+          $imguiRecipe = Get-Content i2d-imgui/dub.sdl -Raw
+          $imguiRecipe = $imguiRecipe.Replace(
+            "-DWINDOWS_STATIC_CRT= .. -S",
+            "-DWINDOWS_STATIC_CRT= -S"
+          )
+          Set-Content i2d-imgui/dub.sdl $imguiRecipe -Encoding Ascii
+
           dub add-local i2d-imgui "0.8.1"
           dub add-local dcv-i2d "0.3.0"
 
@@ -61,15 +71,15 @@ jobs:
         shell: powershell
         run: |
           dub build -y --config=update-version --compiler=ldc2 `
-            --override-config=i2d-imgui/static_dynamicCRT
+            --override-config=i2d-imgui/static_staticCRT
           dub build -y --config=meta --compiler=ldc2 `
-            --override-config=i2d-imgui/static_dynamicCRT
+            --override-config=i2d-imgui/static_staticCRT
 
       - name: Build the full Windows application
         shell: powershell
         run: |
           dub build -y --build=release --compiler=ldc2 --config=win32-full `
-            --override-config=i2d-imgui/static_dynamicCRT --force
+            --override-config=i2d-imgui/static_staticCRT --force
 
           if (-not (Test-Path "out/inochi-creator.exe")) {
             throw "The build completed without producing out/inochi-creator.exe"
@@ -104,6 +114,7 @@ jobs:
           Stop-Process -Id $process.Id -Force
 
       - name: Upload Windows application
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: inochi-creator-win32-full
