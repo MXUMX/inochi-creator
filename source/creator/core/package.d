@@ -752,6 +752,38 @@ void incEndLoop() {
     // Rendering
     igRender();
     if (diagnosticFirstFrame) incDiagnosticLog("frame: ImGui render completed");
+
+    if (diagnosticFirstFrame) {
+        import std.format : format;
+        GLenum staleError;
+        do {
+            staleError = glGetError();
+            if (staleError != GL_NO_ERROR)
+                incDiagnosticLog(format("frame: discarded stale gl-error=0x%X", staleError));
+        } while (staleError != GL_NO_ERROR);
+    }
+
+    // Inochi2D renders the model into private framebuffers. Restore the
+    // complete default-framebuffer state before drawing the application UI.
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDrawBuffer(GL_BACK);
+    glReadBuffer(GL_BACK);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisable(GL_SCISSOR_TEST);
+
+    if (diagnosticFirstFrame) {
+        import std.format : format;
+        GLint drawFramebuffer, readFramebuffer, drawBuffer, readBuffer;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawFramebuffer);
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFramebuffer);
+        glGetIntegerv(GL_DRAW_BUFFER, &drawBuffer);
+        glGetIntegerv(GL_READ_BUFFER, &readBuffer);
+        incDiagnosticLog(format(
+            "frame: restored-state draw-fbo=%s read-fbo=%s draw-buffer=0x%X read-buffer=0x%X gl-error=0x%X",
+            drawFramebuffer, readFramebuffer, drawBuffer, readBuffer, glGetError()
+        ));
+    }
+
     glViewport(0, 0, cast(int)(io.DisplaySize.x*incGetUIScale), cast(int)(io.DisplaySize.y*incGetUIScale));
     glClearColor(0.5, 0.5, 0.5, 1);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -760,6 +792,17 @@ void incEndLoop() {
     if (diagnosticFirstFrame) {
         import std.format : format;
         incDiagnosticLog(format("frame: ImGui draw completed gl-error=0x%X", glGetError()));
+
+        ubyte[4] centerPixel;
+        glReadPixels(
+            cast(int)(io.DisplaySize.x*incGetUIScale)/2,
+            cast(int)(io.DisplaySize.y*incGetUIScale)/2,
+            1, 1, GL_RGBA, GL_UNSIGNED_BYTE, centerPixel.ptr
+        );
+        incDiagnosticLog(format(
+            "frame: pre-swap center-pixel=%s,%s,%s,%s gl-error=0x%X",
+            centerPixel[0], centerPixel[1], centerPixel[2], centerPixel[3], glGetError()
+        ));
     }
 
     if (io.ConfigFlags & ImGuiConfigFlags.ViewportsEnable) {
