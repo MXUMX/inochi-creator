@@ -20,12 +20,26 @@ jobs:
         with:
           compiler: ldc-latest
 
-      - name: Activate the Visual Studio build environment
+      - name: Activate the x64 Visual Studio build environment
         shell: powershell
         run: |
-          .\vcvars.ps1
-          cl 2>&1 | Select-Object -First 1
-          rc.exe /? 2>&1 | Select-Object -First 1
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installationPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          $vsDevCmd = Join-Path $installationPath "Common7\Tools\VsDevCmd.bat"
+
+          & $env:COMSPEC /s /c "`"$vsDevCmd`" -no_logo -arch=x64 -host_arch=x64 && set" |
+            ForEach-Object {
+              if ($_ -match '^([^=]+)=(.*)') {
+                [Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+                "$($matches[1])=$($matches[2])" |
+                  Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+              }
+            }
+
+          where.exe cl
+          where.exe rc
           cmake --version
           ldc2 --version
           dub --version
@@ -43,7 +57,6 @@ jobs:
       - name: Generate Windows resources and version metadata
         shell: powershell
         run: |
-          .\vcvars.ps1
           dub build -y --config=update-version --compiler=ldc2 `
             --override-config=i2d-imgui/static_dynamicCRT
           dub build -y --config=meta --compiler=ldc2 `
@@ -52,7 +65,6 @@ jobs:
       - name: Build the full Windows application
         shell: powershell
         run: |
-          .\vcvars.ps1
           dub build -y --build=release --compiler=ldc2 --config=win32-full `
             --override-config=i2d-imgui/static_dynamicCRT --force
 
