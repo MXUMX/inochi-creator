@@ -12,6 +12,8 @@ import core.stdc.stdio;
 import inmath;
 import bindbc.sdl;
 import inochi2d : inGetRenderImage;
+import creator.utils.diagnostics;
+import std.format : format;
 
 private {
     // OpenGL Data
@@ -33,6 +35,7 @@ bool incGLBackendInit(const (char)* glsl_version) {
     glGetIntegerv(GL_MAJOR_VERSION, &major);
     glGetIntegerv(GL_MINOR_VERSION, &minor);
     g_GlVersion = cast(GLuint)(major * 100 + minor * 10);
+    incDiagnosticLog(format("OpenGL backend: detected-version=%s.%s combined=%s", major, minor, g_GlVersion));
 
     // Setup back-end capabilities flags
     ImGuiIO* io = igGetIO();
@@ -61,7 +64,11 @@ void incGLBackendShutdown() {
 }
 
 void incGLBackendNewFrame() {
-    if (!g_ShaderHandle) incGLBackendCreateDeviceObjects();
+    if (!g_ShaderHandle) {
+        incDiagnosticLog("OpenGL backend: creating device objects");
+        incGLBackendCreateDeviceObjects();
+        incDiagnosticLog(format("OpenGL backend: device objects created shader=%s gl-error=0x%X", g_ShaderHandle, glGetError()));
+    }
 }
 
 void incGLBackendBeginRender() {
@@ -514,19 +521,22 @@ bool incGLBackendCreateDeviceObjects() {
     g_VertHandle = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(g_VertHandle, 2, vertex_shader_with_version.ptr, null);
     glCompileShader(g_VertHandle);
-    incGLBackendCheckShader(g_VertHandle, "vertex shader");
+    const vertexShaderValid = incGLBackendCheckShader(g_VertHandle, "vertex shader");
+    incDiagnosticLog(format("OpenGL backend: vertex-shader-valid=%s", vertexShaderValid));
 
     const (GLchar)*[2] fragment_shader_with_version = [ g_GlslVersionString.ptr, fragment_shader ];
     g_FragHandle = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(g_FragHandle, 2, fragment_shader_with_version.ptr, null);
     glCompileShader(g_FragHandle);
-    incGLBackendCheckShader(g_FragHandle, "fragment shader");
+    const fragmentShaderValid = incGLBackendCheckShader(g_FragHandle, "fragment shader");
+    incDiagnosticLog(format("OpenGL backend: fragment-shader-valid=%s", fragmentShaderValid));
 
     g_ShaderHandle = glCreateProgram();
     glAttachShader(g_ShaderHandle, g_VertHandle);
     glAttachShader(g_ShaderHandle, g_FragHandle);
     glLinkProgram(g_ShaderHandle);
-    incGLBackendCheckProgram(g_ShaderHandle, "shader program");
+    const shaderProgramValid = incGLBackendCheckProgram(g_ShaderHandle, "shader program");
+    incDiagnosticLog(format("OpenGL backend: shader-program-valid=%s", shaderProgramValid));
 
     g_AttribLocationTex = glGetUniformLocation(g_ShaderHandle, "Texture");
     g_AttribLocationProjMtx = glGetUniformLocation(g_ShaderHandle, "ProjMtx");

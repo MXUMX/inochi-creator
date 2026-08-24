@@ -13,6 +13,7 @@ import creator.windows;
 import creator.utils.link;
 import creator;
 import creator.widgets.dialog;
+import creator.utils.diagnostics;
 import creator.widgets.modal;
 import creator.backend.gl;
 import creator.io.autosave;
@@ -321,6 +322,11 @@ void incOpenWindow() {
 
         default: break;
     }
+
+    incDiagnosticLog("OpenGL: version=" ~ glGetString(GL_VERSION).fromStringz);
+    incDiagnosticLog("OpenGL: vendor=" ~ glGetString(GL_VENDOR).fromStringz);
+    incDiagnosticLog("OpenGL: renderer=" ~ glGetString(GL_RENDERER).fromStringz);
+    incDiagnosticLog("OpenGL: shading-language=" ~ glGetString(GL_SHADING_LANGUAGE_VERSION).fromStringz);
 
 
     import std.string : fromStringz;
@@ -722,16 +728,39 @@ void incBeginLoop() {
     Ends the Inochi Creator rendering loop
 */
 void incEndLoop() {
+    static bool diagnosticFirstFrame = true;
+
+    if (diagnosticFirstFrame) {
+        import std.format : format;
+        int windowWidth, windowHeight, drawableWidth, drawableHeight;
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+        incDiagnosticLog(format(
+            "frame: begin window=%sx%s drawable=%sx%s display=%.1fx%.1f framebuffer-scale=%.2fx%.2f ui-scale=%.2f",
+            windowWidth, windowHeight,
+            drawableWidth, drawableHeight,
+            io.DisplaySize.x, io.DisplaySize.y,
+            io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y,
+            incGetUIScale()
+        ));
+    }
+
     // incGLBackendEndRender();
 
     incCleanupDialogs();
 
     // Rendering
     igRender();
+    if (diagnosticFirstFrame) incDiagnosticLog("frame: ImGui render completed");
     glViewport(0, 0, cast(int)(io.DisplaySize.x*incGetUIScale), cast(int)(io.DisplaySize.y*incGetUIScale));
     glClearColor(0.5, 0.5, 0.5, 1);
     glClear(GL_COLOR_BUFFER_BIT);
+    if (diagnosticFirstFrame) incDiagnosticLog("frame: color buffer cleared");
     incGLBackendRenderDrawData(igGetDrawData());
+    if (diagnosticFirstFrame) {
+        import std.format : format;
+        incDiagnosticLog(format("frame: ImGui draw completed gl-error=0x%X", glGetError()));
+    }
 
     if (io.ConfigFlags & ImGuiConfigFlags.ViewportsEnable) {
         SDL_Window* currentWindow = SDL_GL_GetCurrentWindow();
@@ -748,6 +777,10 @@ void incEndLoop() {
     }
 
     SDL_GL_SwapWindow(window);
+    if (diagnosticFirstFrame) {
+        incDiagnosticLog("frame: swap completed");
+        diagnosticFirstFrame = false;
+    }
 }
 
 /**

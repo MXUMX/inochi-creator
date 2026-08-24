@@ -9,6 +9,7 @@ import std.string;
 import creator.core;
 import creator.core.settings;
 import creator.utils.crashdump;
+import creator.utils.diagnostics;
 import creator.panels;
 import creator.windows;
 import creator.widgets;
@@ -50,7 +51,10 @@ version(Windows) {
 int main(string[] args)
 {
     try {
+        incDiagnosticReset();
+        incDiagnosticLog("main: started");
         incSettingsLoad();
+        incDiagnosticLog("main: settings loaded");
         incLocaleInit();
         if (incSettingsCanGet("lang")) {
             string lang = incSettingsGet!string("lang");
@@ -66,6 +70,7 @@ int main(string[] args)
         incInitPanels();
         incActionInit();
         incOpenWindow();
+        incDiagnosticLog("main: window and rendering context initialized");
 
         // Initialize node overrides
         incInitExt();
@@ -85,9 +90,11 @@ int main(string[] args)
         if (incSettingsGet!bool("hasDoneQuickSetup", false) && args.length > 1) incOpenProject(args[1]);
         else {
             incNewProject();
+            incDiagnosticLog("main: new project initialized");
 
             // TODO: Replace with first-time welcome screen
             incPushWindow(new WelcomeWindow());
+            incDiagnosticLog("main: welcome window initialized");
         }
 
         version(InNightly) incModalAdd(
@@ -106,6 +113,7 @@ int main(string[] args)
             )
         );
         // Update loop
+        incDiagnosticLog("main: entering update loop");
         while(!incIsCloseRequested()) {
             incUpdate();
         }
