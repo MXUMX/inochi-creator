@@ -8,7 +8,8 @@ permissions:
 
 jobs:
   build-windows-full:
-    runs-on: windows-latest
+    # i2d-imgui 0.8.1 hardcodes the "Visual Studio 17 2022" CMake generator.
+    runs-on: windows-2022
     timeout-minutes: 45
 
     steps:
