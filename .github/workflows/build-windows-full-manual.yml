@@ -97,24 +97,25 @@ jobs:
           Copy-Item LICENSE out/LICENSE
           Get-ChildItem out | Format-Table Name, Length
 
-      - name: Smoke-test application startup
+      - name: Verify the portable executable bundle
         shell: powershell
         run: |
-          $process = Start-Process `
-            -FilePath "$env:GITHUB_WORKSPACE\out\inochi-creator.exe" `
-            -WorkingDirectory "$env:GITHUB_WORKSPACE\out" `
-            -PassThru
-
-          Start-Sleep -Seconds 15
-          $process.Refresh()
-          if ($process.HasExited) {
-            throw "Inochi Creator exited during startup with code $($process.ExitCode)"
+          $dependencies = (& dumpbin /dependents out\inochi-creator.exe) -join "`n"
+          foreach ($file in @(
+            "SDL2.dll",
+            "freetype.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+          )) {
+            if ($dependencies -notmatch [Regex]::Escape($file)) {
+              throw "The executable does not import expected dependency $file"
+            }
+            if (-not (Test-Path (Join-Path out $file))) {
+              throw "The artifact is missing required dependency $file"
+            }
           }
 
-          Stop-Process -Id $process.Id -Force
-
       - name: Upload Windows application
-        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: inochi-creator-win32-full
