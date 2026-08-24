@@ -17,9 +17,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install LDC and DUB
-        uses: dlang-community/setup-dlang@v1.4.0
+        uses: dlang-community/setup-dlang@v2
         with:
-          compiler: ldc-latest
+          # LDC 1.42/DMD 2.112 incorrectly lowers a normal D class cast in
+          # the v0_8 source tree to an Objective-C runtime operation on Windows.
+          compiler: ldc-1.41.0
 
       - name: Activate the x64 Visual Studio build environment
         shell: powershell
