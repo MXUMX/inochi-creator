@@ -1,0 +1,72 @@
+name: Build Windows full (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-full:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out Inochi Creator
+        uses: actions/checkout@v4
+
+      - name: Install LDC and DUB
+        uses: dlang-community/setup-dlang@v1.4.0
+        with:
+          compiler: ldc-latest
+
+      - name: Activate the Visual Studio build environment
+        shell: powershell
+        run: |
+          .\vcvars.ps1
+          cl 2>&1 | Select-Object -First 1
+          rc.exe /? 2>&1 | Select-Object -First 1
+          cmake --version
+          ldc2 --version
+          dub --version
+
+      - name: Clone compatible local dependencies
+        shell: powershell
+        run: |
+          git clone --branch v0.8.1 --depth 1 --recurse-submodules `
+            https://github.com/Inochi2D/i2d-imgui.git i2d-imgui
+          git clone --depth 1 `
+            https://github.com/Inochi2D/dcv-i2d.git dcv-i2d
+          dub add-local i2d-imgui "0.8.1"
+          dub add-local dcv-i2d "0.3.0"
+
+      - name: Generate Windows resources and version metadata
+        shell: powershell
+        run: |
+          .\vcvars.ps1
+          dub build -y --config=update-version --compiler=ldc2 `
+            --override-config=i2d-imgui/static_dynamicCRT
+          dub build -y --config=meta --compiler=ldc2 `
+            --override-config=i2d-imgui/static_dynamicCRT
+
+      - name: Build the full Windows application
+        shell: powershell
+        run: |
+          .\vcvars.ps1
+          dub build -y --build=release --compiler=ldc2 --config=win32-full `
+            --override-config=i2d-imgui/static_dynamicCRT --force
+
+          if (-not (Test-Path "out/inochi-creator.exe")) {
+            throw "The build completed without producing out/inochi-creator.exe"
+          }
+
+          Copy-Item LICENSE out/LICENSE
+          Get-ChildItem out | Format-Table Name, Length
+
+      - name: Upload Windows application
+        uses: actions/upload-artifact@v4
+        with:
+          name: inochi-creator-win32-full
+          path: out/**
+          if-no-files-found: error
+          retention-days: 7
