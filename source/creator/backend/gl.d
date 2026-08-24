@@ -29,9 +29,9 @@ private {
 // Functions
 bool incGLBackendInit(const (char)* glsl_version) {
     // Query for GL version (e.g. 320 for GL 3.2)
-    const GLint major = 4, minor = 2;
-    //glGetIntegerv(GL_MAJOR_VERSION, &major);
-    //glGetIntegerv(GL_MINOR_VERSION, &minor);
+    GLint major = 0, minor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
     g_GlVersion = cast(GLuint)(major * 100 + minor * 10);
 
     // Setup back-end capabilities flags
