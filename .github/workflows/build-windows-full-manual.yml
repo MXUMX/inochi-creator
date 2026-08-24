@@ -75,8 +75,33 @@ jobs:
             throw "The build completed without producing out/inochi-creator.exe"
           }
 
+          $crtDirectory = Get-ChildItem `
+            "$env:VCToolsRedistDir\x64\Microsoft.VC*.CRT" -Directory |
+            Select-Object -First 1
+          if (-not $crtDirectory) {
+            throw "Could not find the x64 Visual C++ redistributable directory"
+          }
+
+          Copy-Item (Join-Path $crtDirectory.FullName "vcruntime140.dll") out
+          Copy-Item (Join-Path $crtDirectory.FullName "vcruntime140_1.dll") out
           Copy-Item LICENSE out/LICENSE
           Get-ChildItem out | Format-Table Name, Length
+
+      - name: Smoke-test application startup
+        shell: powershell
+        run: |
+          $process = Start-Process `
+            -FilePath "$env:GITHUB_WORKSPACE\out\inochi-creator.exe" `
+            -WorkingDirectory "$env:GITHUB_WORKSPACE\out" `
+            -PassThru
+
+          Start-Sleep -Seconds 15
+          $process.Refresh()
+          if ($process.HasExited) {
+            throw "Inochi Creator exited during startup with code $($process.ExitCode)"
+          }
+
+          Stop-Process -Id $process.Id -Force
 
       - name: Upload Windows application
         uses: actions/upload-artifact@v4
