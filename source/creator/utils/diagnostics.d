@@ -14,7 +14,7 @@ void incDiagnosticReset() {
     }
 }
 
-void incDiagnosticLog(string message) {
+void incDiagnosticLog(const(char)[] message) {
     try {
         auto file = File(INC_DIAGNOSTIC_LOG, "a");
         file.writeln(message);
